@@ -50,15 +50,23 @@ export async function runUptimeChecks(): Promise<{
   let notifications = 0;
 
   for (const monitor of activeMonitors) {
-    const result = await checkUrl(monitor.url);
-
-    // Get previous state
+    // Get previous state (also used for interval check)
     const [previousLog] = await db
       .select()
       .from(uptimeLogs)
       .where(eq(uptimeLogs.monitorId, monitor.id))
       .orderBy(desc(uptimeLogs.checkedAt))
       .limit(1);
+
+    // Respect per-monitor check interval: skip if checked recently enough
+    if (previousLog) {
+      const elapsed = Date.now() - new Date(previousLog.checkedAt).getTime();
+      if (elapsed < monitor.checkIntervalSeconds * 1000) {
+        continue;
+      }
+    }
+
+    const result = await checkUrl(monitor.url);
 
     // Log the result
     await db.insert(uptimeLogs).values({
