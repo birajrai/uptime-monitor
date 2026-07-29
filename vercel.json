@@ -1,0 +1,18 @@
+{
+  "buildCommand": "bun run build",
+  "installCommand": "bun install --frozen-lockfile",
+  "outputDirectory": "build/client",
+  "framework": "remix",
+  "functions": {
+    "build/server/index.js": {
+      "memory": 512,
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/build/server/index.js"
+    }
+  ]
+}
