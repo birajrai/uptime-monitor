@@ -1,5 +1,5 @@
 import { useLoaderData } from "react-router";
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql, and, inArray } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { statusPages, statusPageMonitors, monitors, uptimeLogs } from "~/lib/schema";
 import { Badge } from "~/components/ui/badge";
@@ -63,7 +63,7 @@ export async function loader({ params }: Route.LoaderArgs) {
   const pageMonitors = await db
     .select()
     .from(monitors)
-    .where(sql`${monitors.id} = ANY(${sql.join(monitorIds, sql`, `)})`)
+    .where(inArray(monitors.id, monitorIds))
     .execute();
 
   const monitorsWithStatus: MonitorWithStatus[] = await Promise.all(
