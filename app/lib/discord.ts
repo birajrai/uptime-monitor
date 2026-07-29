@@ -51,8 +51,12 @@ export async function sendDiscordNotification(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ embeds: [embed] }),
     });
+    if (!res.ok) {
+      console.error(`Discord notification failed: ${res.status} ${res.statusText}`);
+    }
     return res.ok;
-  } catch {
+  } catch (err) {
+    console.error("Discord notification error:", err);
     return false;
   }
 }
@@ -71,8 +75,12 @@ export async function sendTestWebhook(webhookUrl: string): Promise<boolean> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ embeds: [embed] }),
     });
+    if (!res.ok) {
+      console.error(`Test webhook failed: ${res.status} ${res.statusText}`);
+    }
     return res.ok;
-  } catch {
+  } catch (err) {
+    console.error("Test webhook error:", err);
     return false;
   }
 }

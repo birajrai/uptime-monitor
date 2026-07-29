@@ -19,6 +19,7 @@ import type { Route } from "./+types/status-pages.$id.edit";
 export async function loader({ request, params }: Route.LoaderArgs) {
   const session = requireAuth(request);
   const id = parseInt(params.id, 10);
+  if (isNaN(id)) throw new Response("Invalid ID", { status: 400 });
 
   const [page] = await db
     .select()
@@ -54,6 +55,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 export async function action({ request, params }: Route.ActionArgs) {
   const session = requireAuth(request);
   const id = parseInt(params.id, 10);
+  if (isNaN(id)) throw new Response("Invalid ID", { status: 400 });
 
   const [page] = await db
     .select()

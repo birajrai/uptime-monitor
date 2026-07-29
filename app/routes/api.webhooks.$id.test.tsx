@@ -8,6 +8,7 @@ import type { Route } from "./+types/api.webhooks.$id.test";
 export async function action({ request, params }: Route.ActionArgs) {
   const session = requireAuth(request);
   const id = parseInt(params.id, 10);
+  if (isNaN(id)) return Response.json({ error: "Invalid webhook ID" }, { status: 400 });
 
   const [webhook] = await db
     .select()

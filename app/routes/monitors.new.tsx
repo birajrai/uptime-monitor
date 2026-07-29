@@ -6,13 +6,6 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
-import {
   Card,
   CardContent,
   CardDescription,
@@ -40,7 +33,7 @@ export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const name = formData.get("name") as string;
   const url = formData.get("url") as string;
-  const interval = parseInt(formData.get("interval") as string, 10) || 60;
+  const interval = Math.max(10, parseInt(formData.get("interval") as string, 10) || 60);
 
   const errors: Record<string, string> = {};
   if (!name || name.trim().length === 0) errors.name = "Name is required.";

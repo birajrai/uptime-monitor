@@ -1,5 +1,5 @@
 import { Link, Form, redirect, useLoaderData } from "react-router";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { Plus, Trash, ArrowRight } from "@phosphor-icons/react";
 import { db } from "~/lib/db";
 import { monitors, uptimeLogs } from "~/lib/schema";
@@ -49,7 +49,8 @@ export async function action({ request }: Route.ActionArgs) {
 
   if (intent === "delete") {
     const id = parseInt(formData.get("monitorId") as string, 10);
-    await db.delete(monitors).where(eq(monitors.id, id)).execute();
+    if (isNaN(id)) return redirect("/");
+    await db.delete(monitors).where(and(eq(monitors.id, id), eq(monitors.userId, session.userId))).execute();
   }
 
   return redirect("/");
@@ -83,8 +84,13 @@ export default function Dashboard() {
             e.preventDefault();
             const btn = (e.target as HTMLFormElement).querySelector("button");
             if (btn) { btn.disabled = true; btn.textContent = "Checking..."; }
-            fetch("/api/cron").then(() => window.location.reload()).catch(() => {
+            fetch("/api/cron").then((res) => {
+              if (res.ok) window.location.reload();
+              else { if (btn) { btn.disabled = false; btn.textContent = "Check Now"; }
+              alert("Check completed but server returned an error."); }
+            }).catch(() => {
               if (btn) { btn.disabled = false; btn.textContent = "Check Now"; }
+              alert("Network error connecting to the server.");
             });
           }}>
             <Button type="submit" variant="outline">Check Now</Button>

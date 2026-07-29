@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { monitors, uptimeLogs } from "~/lib/schema";
 import { requireAuth } from "~/lib/require-auth";
@@ -7,6 +7,7 @@ import type { Route } from "./+types/api.monitors.$id.check";
 export async function action({ request, params }: Route.ActionArgs) {
   const session = requireAuth(request);
   const id = parseInt(params.id, 10);
+  if (isNaN(id)) return Response.json({ error: "Invalid monitor ID" }, { status: 400 });
 
   const [monitor] = await db
     .select()
@@ -16,6 +17,10 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   if (!monitor || monitor.userId !== session.userId) {
     return Response.json({ error: "Not found" }, { status: 404 });
+  }
+
+  if (!monitor.isActive) {
+    return Response.json({ error: "Monitor is paused" }, { status: 400 });
   }
 
   const start = performance.now();
@@ -30,7 +35,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     const response = await fetch(monitor.url, { signal: controller.signal });
     clearTimeout(timeout);
     statusCode = response.status;
-    isUp = response.status >= 200 && response.status < 500;
+    isUp = response.status >= 200 && response.status < 400;
     responseTimeMs = Math.round(performance.now() - start);
   } catch (err) {
     errorMessage = err instanceof Error ? err.message : "Unknown error";

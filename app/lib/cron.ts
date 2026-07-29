@@ -12,17 +12,16 @@ interface CheckResult {
 
 async function checkUrl(url: string): Promise<CheckResult> {
   const start = performance.now();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
     const response = await fetch(url, {
       signal: controller.signal,
     });
-    clearTimeout(timeout);
     const responseTimeMs = Math.round(performance.now() - start);
     return {
       statusCode: response.status,
-      isUp: response.status >= 200 && response.status < 500,
+      isUp: response.status >= 200 && response.status < 400,
       responseTimeMs,
       errorMessage: null,
     };
@@ -33,6 +32,8 @@ async function checkUrl(url: string): Promise<CheckResult> {
       responseTimeMs: Math.round(performance.now() - start),
       errorMessage: err instanceof Error ? err.message : "Unknown error",
     };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -84,7 +85,7 @@ export async function runUptimeChecks(): Promise<{
           : webhook.notifyOnDown;
 
         if (shouldNotify) {
-          await sendDiscordNotification({
+          const sent = await sendDiscordNotification({
             webhookUrl: webhook.webhookUrl,
             monitorName: monitor.name,
             monitorUrl: monitor.url,
@@ -94,7 +95,11 @@ export async function runUptimeChecks(): Promise<{
             errorMessage: result.errorMessage,
             previousStatus: wasUp ? "UP" : "DOWN",
           });
-          notifications++;
+          if (sent) {
+            notifications++;
+          } else {
+            console.error(`Failed to send notification for monitor ${monitor.id} to webhook ${webhook.id}`);
+          }
         }
       }
     }

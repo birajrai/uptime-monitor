@@ -71,7 +71,7 @@ export default function UptimeChart({ logs }: { logs: UptimeLog[] }) {
     .slice()
     .reverse()
     .map((log) => ({
-      time: new Date(log.checkedAt).toLocaleString(),
+      time: log.checkedAt, // Use ISO string directly
       responseTimeMs: log.responseTimeMs,
       isUp: log.isUp,
       statusCode: log.statusCode,
@@ -86,7 +86,9 @@ export default function UptimeChart({ logs }: { logs: UptimeLog[] }) {
           tick={{ fontSize: 11, fill: "#9ca3af" }}
           tickFormatter={(v: string) => {
             const d = new Date(v);
-            return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+            return isNaN(d.getTime())
+              ? ""
+              : `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
           }}
         />
         <YAxis

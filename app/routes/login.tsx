@@ -3,7 +3,6 @@ import { compareSync } from "bcryptjs";
 import { db } from "~/lib/db";
 import { users } from "~/lib/schema";
 import {
-  createSessionCookie,
   getSessionFromRequest,
   getSessionCookieHeader,
 } from "~/lib/auth";

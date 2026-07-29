@@ -1,6 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-const SECRET = process.env.APP_SECRET!;
+if (!process.env.APP_SECRET) {
+  throw new Error("APP_SECRET environment variable is required");
+}
+const SECRET = process.env.APP_SECRET;
 
 export interface SessionData {
   userId: number;
@@ -60,9 +63,11 @@ export function getSessionFromRequest(request: Request): SessionData | null {
 
 export function getSessionCookieHeader(sessionData: SessionData): string {
   const value = createSessionCookie(sessionData.userId, sessionData.email);
-  return `session=${value}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${30 * 24 * 60 * 60}`;
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return `session=${value}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${30 * 24 * 60 * 60}${secure}`;
 }
 
 export function clearSessionCookieHeader(): string {
-  return `session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`;
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return `session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}`;
 }

@@ -1,8 +1,8 @@
-import { Form, redirect, useActionData, type ActionFunctionArgs } from "react-router";
+import { Form, redirect, useActionData } from "react-router";
 import { hashSync } from "bcryptjs";
 import { db } from "~/lib/db";
 import { users } from "~/lib/schema";
-import { createSessionCookie, getSessionFromRequest, getSessionCookieHeader } from "~/lib/auth";
+import { getSessionFromRequest, getSessionCookieHeader } from "~/lib/auth";
 import { eq } from "drizzle-orm";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";

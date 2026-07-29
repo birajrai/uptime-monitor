@@ -1,5 +1,5 @@
 import { Link, Form, redirect, useLoaderData } from "react-router";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { Plus, Trash, PencilSimple } from "@phosphor-icons/react";
 import { db } from "~/lib/db";
 import { statusPages, statusPageMonitors } from "~/lib/schema";
@@ -28,7 +28,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       createdAt: statusPages.createdAt,
       monitorCount: sql<number>`(
         SELECT COUNT(*) FROM ${statusPageMonitors}
-        WHERE ${statusPageMonitors.statusPageId} = ${statusPages.id}
+        WHERE ${statusPageMonitors.statusPageId} = status_pages.id
       )`,
     })
     .from(statusPages)
@@ -45,7 +45,8 @@ export async function action({ request }: Route.ActionArgs) {
 
   if (intent === "delete") {
     const id = parseInt(formData.get("pageId") as string, 10);
-    await db.delete(statusPages).where(eq(statusPages.id, id)).execute();
+    if (isNaN(id)) return redirect("/status-pages");
+    await db.delete(statusPages).where(and(eq(statusPages.id, id), eq(statusPages.userId, session.userId))).execute();
   }
 
   return redirect("/status-pages");

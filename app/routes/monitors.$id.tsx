@@ -1,4 +1,5 @@
-import { Form, Link, redirect, useLoaderData } from "react-router";
+import { Form, Link, redirect, useLoaderData, useActionData, useSubmit } from "react-router";
+import { useState } from "react";
 import { eq, desc } from "drizzle-orm";
 import { ArrowLeft, Trash } from "@phosphor-icons/react";
 import { db } from "~/lib/db";
@@ -39,6 +40,7 @@ import type { Route } from "./+types/monitors.$id";
 export async function loader({ request, params }: Route.LoaderArgs) {
   const session = requireAuth(request);
   const id = parseInt(params.id, 10);
+  if (isNaN(id)) throw new Response("Invalid ID", { status: 400 });
 
   const [monitor] = await db
     .select()
@@ -75,6 +77,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 export async function action({ request, params }: Route.ActionArgs) {
   const session = requireAuth(request);
   const id = parseInt(params.id, 10);
+  if (isNaN(id)) throw new Response("Invalid ID", { status: 400 });
 
   const [monitor] = await db
     .select()
@@ -90,12 +93,13 @@ export async function action({ request, params }: Route.ActionArgs) {
   const intent = formData.get("intent");
 
   if (intent === "toggle-active") {
+    const newIsActive = !monitor.isActive;
     await db
       .update(monitors)
-      .set({ isActive: !monitor.isActive, updatedAt: new Date() })
+      .set({ isActive: newIsActive, updatedAt: new Date() })
       .where(eq(monitors.id, id))
       .execute();
-    return { success: true };
+    return { isActive: newIsActive };
   }
 
   if (intent === "delete") {
@@ -140,6 +144,15 @@ function formatDuration(seconds: number): string {
 
 export default function MonitorDetail() {
   const { monitor, logs, webhook } = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
+
+  // Track webhook checkbox state (Radix Checkbox doesn't submit with native forms)
+  const [notifyOnDown, setNotifyOnDown] = useState(webhook?.notifyOnDown ?? true);
+  const [notifyOnUp, setNotifyOnUp] = useState(webhook?.notifyOnUp ?? true);
+
+  // Use action data for toggle state so UI stays in sync with server
+  const displayIsActive = actionData?.isActive ?? monitor.isActive;
+  const submitToggle = useSubmit();
 
   const latestLog = logs[0] ?? null;
   const uptimePct =
@@ -204,24 +217,15 @@ export default function MonitorDetail() {
             <div>
               <p className="text-xs text-gray-500">Status</p>
               <div className="flex items-center gap-2">
-                <Form method="post">
-                  <input type="hidden" name="intent" value="toggle-active" />
                   <Switch
-                    name="isActive"
-                    defaultChecked={monitor.isActive}
+                    checked={displayIsActive}
                     onCheckedChange={() => {
-                      // Submit the form when toggled
-                      const form = document.getElementById("toggle-form") as HTMLFormElement;
-                      form?.requestSubmit();
+                      submitToggle({ intent: "toggle-active" }, { method: "post" });
                     }}
                   />
-                </Form>
                 <span className="text-sm text-gray-600">
-                  {monitor.isActive ? "Active" : "Paused"}
+                  {displayIsActive ? "Active" : "Paused"}
                 </span>
-                <Form method="post" id="toggle-form">
-                  <input type="hidden" name="intent" value="toggle-active" />
-                </Form>
               </div>
             </div>
           </div>
@@ -336,16 +340,18 @@ export default function MonitorDetail() {
 
             <div className="flex items-center gap-6">
               <label className="flex items-center gap-2 text-sm">
+                <input type="hidden" name="notifyOnDown" value={notifyOnDown ? "on" : "off"} />
                 <Checkbox
-                  name="notifyOnDown"
-                  defaultChecked={webhook?.notifyOnDown ?? true}
+                  checked={notifyOnDown}
+                  onCheckedChange={(checked) => setNotifyOnDown(checked === true)}
                 />
                 Notify on Down
               </label>
               <label className="flex items-center gap-2 text-sm">
+                <input type="hidden" name="notifyOnUp" value={notifyOnUp ? "on" : "off"} />
                 <Checkbox
-                  name="notifyOnUp"
-                  defaultChecked={webhook?.notifyOnUp ?? true}
+                  checked={notifyOnUp}
+                  onCheckedChange={(checked) => setNotifyOnUp(checked === true)}
                 />
                 Notify on Recovery
               </label>
@@ -358,12 +364,16 @@ export default function MonitorDetail() {
                   type="button"
                   variant="outline"
                   onClick={async () => {
-                    const res = await fetch(
-                      `/api/webhooks/${webhook.id}/test`,
-                      { method: "POST" }
-                    );
-                    if (res.ok) alert("Test notification sent!");
-                    else alert("Failed to send test.");
+                    try {
+                      const res = await fetch(
+                        `/api/webhooks/${webhook.id}/test`,
+                        { method: "POST" }
+                      );
+                      if (res.ok) alert("Test notification sent!");
+                      else alert("Failed to send test.");
+                    } catch {
+                      alert("Network error sending test notification.");
+                    }
                   }}
                 >
                   Test Webhook

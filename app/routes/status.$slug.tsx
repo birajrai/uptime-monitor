@@ -30,6 +30,10 @@ function calculateUptime(
   return Math.round((upCount / logs.length) * 100);
 }
 
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+
 export async function loader({ params }: Route.LoaderArgs) {
   const { slug } = params;
 
@@ -66,65 +70,56 @@ export async function loader({ params }: Route.LoaderArgs) {
     .where(inArray(monitors.id, monitorIds))
     .execute();
 
-  const monitorsWithStatus: MonitorWithStatus[] = await Promise.all(
-    pageMonitors.map(async (m) => {
-      // Latest log
-      const [latestLog] = await db
-        .select()
-        .from(uptimeLogs)
-        .where(eq(uptimeLogs.monitorId, m.id))
-        .orderBy(desc(uptimeLogs.checkedAt))
-        .limit(1)
-        .execute();
+  // Batch: fetch all logs within 30 days for ALL monitors in a single query
+  const allLogs = await db
+    .select()
+    .from(uptimeLogs)
+    .where(
+      and(
+        inArray(uptimeLogs.monitorId, monitorIds),
+        sql`${uptimeLogs.checkedAt} > now() - interval '30 days'`
+      )
+    )
+    .orderBy(desc(uptimeLogs.checkedAt))
+    .execute();
 
-      // 24h uptime
-      const logs24h = await db
-        .select({ isUp: uptimeLogs.isUp })
-        .from(uptimeLogs)
-        .where(
-          and(
-            eq(uptimeLogs.monitorId, m.id),
-            sql`${uptimeLogs.checkedAt} > now() - interval '24 hours'`
-          )
-        )
-        .execute();
+  // Group logs by monitorId in memory
+  const logsByMonitor = new Map<number, typeof allLogs>();
+  for (const log of allLogs) {
+    if (!logsByMonitor.has(log.monitorId)) {
+      logsByMonitor.set(log.monitorId, []);
+    }
+    logsByMonitor.get(log.monitorId)!.push(log);
+  }
 
-      // 7d uptime
-      const logs7d = await db
-        .select({ isUp: uptimeLogs.isUp })
-        .from(uptimeLogs)
-        .where(
-          and(
-            eq(uptimeLogs.monitorId, m.id),
-            sql`${uptimeLogs.checkedAt} > now() - interval '7 days'`
-          )
-        )
-        .execute();
+  const now = Date.now();
 
-      // 30d uptime
-      const logs30d = await db
-        .select({ isUp: uptimeLogs.isUp })
-        .from(uptimeLogs)
-        .where(
-          and(
-            eq(uptimeLogs.monitorId, m.id),
-            sql`${uptimeLogs.checkedAt} > now() - interval '30 days'`
-          )
-        )
-        .execute();
+  const monitorsWithStatus: MonitorWithStatus[] = pageMonitors.map((m) => {
+    const monitorLogs = logsByMonitor.get(m.id) ?? [];
 
-      return {
-        id: m.id,
-        name: m.name,
-        url: m.url,
-        isUp: latestLog?.isUp ?? null,
-        lastCheckedAt: latestLog?.checkedAt?.toISOString() ?? null,
-        uptime24h: calculateUptime(logs24h),
-        uptime7d: calculateUptime(logs7d),
-        uptime30d: calculateUptime(logs30d),
-      };
-    })
-  );
+    // Latest log is first (ordered DESC by DB query)
+    const latestLog = monitorLogs[0] ?? null;
+
+    // Filter in-memory for each time window
+    const logs30d = monitorLogs;
+    const logs7d = monitorLogs.filter(
+      (l) => now - new Date(l.checkedAt).getTime() < SEVEN_DAYS_MS
+    );
+    const logs24h = monitorLogs.filter(
+      (l) => now - new Date(l.checkedAt).getTime() < TWENTY_FOUR_HOURS_MS
+    );
+
+    return {
+      id: m.id,
+      name: m.name,
+      url: m.url,
+      isUp: latestLog?.isUp ?? null,
+      lastCheckedAt: latestLog?.checkedAt?.toISOString() ?? null,
+      uptime24h: calculateUptime(logs24h),
+      uptime7d: calculateUptime(logs7d),
+      uptime30d: calculateUptime(logs30d),
+    };
+  });
 
   return {
     title: page.title,
