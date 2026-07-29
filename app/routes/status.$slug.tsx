@@ -1,5 +1,5 @@
 import { useLoaderData } from "react-router";
-import { eq, sql, and, inArray } from "drizzle-orm";
+import { eq, sql, and, inArray, desc } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { statusPages, statusPageMonitors, monitors, uptimeLogs } from "~/lib/schema";
 import { Badge } from "~/components/ui/badge";
@@ -73,7 +73,7 @@ export async function loader({ params }: Route.LoaderArgs) {
         .select()
         .from(uptimeLogs)
         .where(eq(uptimeLogs.monitorId, m.id))
-        .orderBy(sql`${uptimeLogs.checkedAt} DESC`)
+        .orderBy(desc(uptimeLogs.checkedAt))
         .limit(1)
         .execute();
 
