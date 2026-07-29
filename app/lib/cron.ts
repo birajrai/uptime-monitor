@@ -2,6 +2,7 @@ import { db } from "./db";
 import { monitors, uptimeLogs, monitorWebhooks } from "./schema";
 import { eq, desc } from "drizzle-orm";
 import { sendDiscordNotification } from "./discord";
+import { FETCH_TIMEOUT_MS, HTTP_STATUS_UP_MIN, HTTP_STATUS_UP_MAX } from "./constants";
 
 interface CheckResult {
   statusCode: number | null;
