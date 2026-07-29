@@ -77,12 +77,25 @@ export default function Dashboard() {
             Monitor your websites and services.
           </p>
         </div>
-        <Button asChild>
-          <Link to="/monitors/new">
-            <Plus className="h-4 w-4" />
-            New Monitor
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Form method="get" action="/api/cron" onSubmit={(e) => {
+            // Use fetch instead of form navigation so we stay on dashboard
+            e.preventDefault();
+            const btn = (e.target as HTMLFormElement).querySelector("button");
+            if (btn) { btn.disabled = true; btn.textContent = "Checking..."; }
+            fetch("/api/cron").then(() => window.location.reload()).catch(() => {
+              if (btn) { btn.disabled = false; btn.textContent = "Check Now"; }
+            });
+          }}>
+            <Button type="submit" variant="outline">Check Now</Button>
+          </Form>
+          <Button asChild>
+            <Link to="/monitors/new">
+              <Plus className="h-4 w-4" />
+              New Monitor
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {monitorList.length === 0 ? (
